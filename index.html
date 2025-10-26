@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎆</title>
+<title>🎆 全景烟花</title>
 <style>
   html, body {
     margin: 0;
@@ -49,6 +49,9 @@
 <div class="control-panel">
   <label>烟花大小: <span id="sizeValue">1.0</span></label>
   <input type="range" id="fireworkSize" min="0.3" max="3" step="0.1" value="1">
+  
+  <label>画面缩放: <span id="zoomValue">1.0</span></label>
+  <input type="range" id="zoomControl" min="0.3" max="2" step="0.1" value="1">
 </div>
 
 <script>
@@ -56,6 +59,8 @@ const canvas = document.getElementById("fireworks");
 const ctx = canvas.getContext("2d");
 const sizeSlider = document.getElementById("fireworkSize");
 const sizeValue = document.getElementById("sizeValue");
+const zoomSlider = document.getElementById("zoomControl");
+const zoomValue = document.getElementById("zoomValue");
 
 let w, h;
 function resize() {
@@ -66,9 +71,16 @@ window.addEventListener("resize", resize);
 resize();
 
 let fireworkScale = parseFloat(sizeSlider.value);
+let viewZoom = parseFloat(zoomSlider.value);
+
 sizeSlider.addEventListener("input", () => {
   fireworkScale = parseFloat(sizeSlider.value);
   sizeValue.textContent = fireworkScale.toFixed(1);
+});
+
+zoomSlider.addEventListener("input", () => {
+  viewZoom = parseFloat(zoomSlider.value);
+  zoomValue.textContent = viewZoom.toFixed(1);
 });
 
 class Particle {
@@ -80,15 +92,14 @@ class Particle {
     this.vy = vy;
     this.life = life;
     this.size = size;
-    this.generation = generation; // 第几代烟花
+    this.generation = generation;
   }
   update() {
     this.x += this.vx;
     this.y += this.vy;
-    this.vy += 0.03; // 重力
+    this.vy += 0.03;
     this.life -= 1;
 
-    // 有概率在生命后期触发二级小烟花
     if (this.life < 10 && this.generation === 1 && Math.random() < 0.05) {
       explode(this.x, this.y, this.color, 2);
       this.life = 0;
@@ -169,7 +180,7 @@ function showLoveText(x, y) {
   text.className = "love-text";
   text.innerText = "❤️";
   document.body.appendChild(text);
-  text.style.left = `${x - 100}px`;
+  text.style.left = `${x - 20}px`;
   text.style.top = `${y - 50}px`;
 
   setTimeout(() => {
@@ -186,6 +197,9 @@ canvas.addEventListener("click", (e) => {
 
 function animate() {
   requestAnimationFrame(animate);
+  ctx.save();
+  ctx.setTransform(viewZoom, 0, 0, viewZoom, w / 2 * (1 - viewZoom), h / 2 * (1 - viewZoom));
+
   ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
   ctx.fillRect(0, 0, w, h);
 
@@ -200,6 +214,8 @@ function animate() {
     p.draw();
     if (p.life <= 0) particles.splice(i, 1);
   });
+
+  ctx.restore();
 }
 animate();
 </script>
