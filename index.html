@@ -12,17 +12,19 @@
     background: radial-gradient(circle at bottom, #000010 0%, #000000 100%);
     cursor: crosshair;
   }
-  canvas { display: block; }
+  canvas {
+    display: block;
+  }
   .love-text {
     position: absolute;
     font-family: "Microsoft Yahei", sans-serif;
-    font-size: 32px;
-    color: #ff99ff;
-    text-shadow: 0 0 10px #ff33cc, 0 0 30px #ff66ff, 0 0 50px #ff99ff;
-    opacity: 0;
+    font-size: 48px;
+    color: #ff99cc;
+    text-shadow: 0 0 20px #ff3399, 0 0 40px #ff66cc, 0 0 60px #ff99ff;
+    opacity: 1;
+    transition: opacity 2s ease-out, transform 2s ease-out;
     pointer-events: none;
-    transition: transform 2s ease-out, opacity 2.5s ease-out;
-    transform: translate(-50%, -50%) scale(0.5);
+    user-select: none;
   }
 </style>
 </head>
@@ -124,38 +126,32 @@ function explode(x, y, color) {
   }
 }
 
-// 在烟花爆炸处生成漂浮文字
+// 🌸 显示文字特效函数
 function showLoveText(x, y) {
   const text = document.createElement("div");
   text.className = "love-text";
-  text.textContent = "贾JJ送我爱心 ❤️";
-  text.style.left = `${x}px`;
-  text.style.top = `${y}px`;
+  text.innerText = "贾JJ送我爱心 ❤️";
   document.body.appendChild(text);
-  
-  requestAnimationFrame(() => {
-    text.style.opacity = 1;
-    text.style.transform = "translate(-50%, -150%) scale(1.5)";
-  });
 
+  // 设置文字出现位置
+  text.style.left = `${x - 100}px`;
+  text.style.top = `${y - 50}px`;
+
+  // 触发淡出动画
   setTimeout(() => {
     text.style.opacity = 0;
-    text.style.transform = "translate(-50%, -300%) scale(0.8)";
-    setTimeout(() => text.remove(), 2500);
-  }, 1200);
+    text.style.transform = "translateY(-80px) scale(1.2)";
+  }, 100);
+
+  // 删除文字节点
+  setTimeout(() => {
+    text.remove();
+  }, 2500);
 }
 
-// 点击时生成多个烟花
 canvas.addEventListener("click", (e) => {
-  const count = 4 + Math.floor(Math.random() * 3);
-  for (let i = 0; i < count; i++) {
-    const offsetX = (Math.random() - 0.5) * 150;
-    const offsetY = (Math.random() - 0.5) * 150;
-    const color = `hsl(${Math.random() * 360}, 100%, 50%)`;
-    setTimeout(() => {
-      fireworks.push(new Firework(e.clientX + offsetX, h, e.clientX + offsetX, e.clientY + offsetY, color));
-    }, i * 250);
-  }
+  const color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+  fireworks.push(new Firework(e.clientX, h, e.clientX, e.clientY, color));
 });
 
 function animate() {
