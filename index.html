@@ -26,44 +26,38 @@
     pointer-events: none;
     user-select: none;
   }
-
-  /* 缩放滑块 */
-  #zoomControl {
+  .control-panel {
     position: fixed;
-    top: 50%;
+    top: 10px;
     right: 10px;
-    transform: translateY(-50%);
-    writing-mode: bt-lr;
-    appearance: none;
-    width: 200px;
-    height: 8px;
-    background: #444;
-    border-radius: 4px;
-    outline: none;
-    cursor: pointer;
+    background: rgba(20, 20, 30, 0.7);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 10px;
+    font-family: sans-serif;
+    z-index: 10;
   }
-  #zoomControl::-webkit-slider-thumb {
-    appearance: none;
-    width: 16px;
-    height: 16px;
-    background: #ff99cc;
-    border-radius: 50%;
-    box-shadow: 0 0 10px #ff33aa;
+  .control-panel label {
+    display: block;
+    margin-bottom: 5px;
   }
 </style>
 </head>
 <body>
 <canvas id="fireworks"></canvas>
-<input type="range" id="zoomControl" min="0.5" max="2.0" step="0.01" value="1">
+
+<div class="control-panel">
+  <label>烟花大小: <span id="sizeValue">1.0</span></label>
+  <input type="range" id="fireworkSize" min="0.3" max="3" step="0.1" value="1">
+</div>
 
 <script>
 const canvas = document.getElementById("fireworks");
 const ctx = canvas.getContext("2d");
-const zoomSlider = document.getElementById("zoomControl");
+const sizeSlider = document.getElementById("fireworkSize");
+const sizeValue = document.getElementById("sizeValue");
 
 let w, h;
-let zoom = 1;
-
 function resize() {
   w = canvas.width = window.innerWidth;
   h = canvas.height = window.innerHeight;
@@ -71,12 +65,14 @@ function resize() {
 window.addEventListener("resize", resize);
 resize();
 
-zoomSlider.addEventListener("input", () => {
-  zoom = parseFloat(zoomSlider.value);
+let fireworkScale = parseFloat(sizeSlider.value);
+sizeSlider.addEventListener("input", () => {
+  fireworkScale = parseFloat(sizeSlider.value);
+  sizeValue.textContent = fireworkScale.toFixed(1);
 });
 
 class Particle {
-  constructor(x, y, color, vx, vy, life, size, level = 1) {
+  constructor(x, y, color, vx, vy, life, size, generation = 1) {
     this.x = x;
     this.y = y;
     this.color = color;
@@ -84,19 +80,18 @@ class Particle {
     this.vy = vy;
     this.life = life;
     this.size = size;
-    this.level = level; // 一级或二级粒子
-    this.exploded = false;
+    this.generation = generation; // 第几代烟花
   }
   update() {
     this.x += this.vx;
     this.y += this.vy;
-    this.vy += 0.05;
+    this.vy += 0.05; // 重力
     this.life -= 1;
 
-    // 粒子临近死亡时随机爆炸二级烟花
-    if (this.life < 10 && !this.exploded && this.level === 1 && Math.random() < 0.05) {
-      this.exploded = true;
+    // 有概率在生命后期触发二级小烟花
+    if (this.life < 10 && this.generation === 1 && Math.random() < 0.05) {
       explode(this.x, this.y, this.color, 2);
+      this.life = 0;
     }
   }
   draw() {
@@ -125,7 +120,7 @@ class Firework {
       const speed = Math.max(4, dist / 25);
       this.x += (dx / dist) * speed;
       this.y += (dy / dist) * speed;
-      this.trail.push({x:this.x,y:this.y});
+      this.trail.push({x:this.x, y:this.y});
       if (this.trail.length > 8) this.trail.shift();
       if (dist < 10) {
         this.exploded = true;
@@ -153,27 +148,27 @@ class Firework {
 let fireworks = [];
 let particles = [];
 
-function explode(x, y, color, level = 1) {
-  const count = level === 1 ? 60 + Math.random() * 40 : 25 + Math.random() * 15;
+function explode(x, y, color, generation = 1) {
+  const count = (generation === 1 ? 80 : 40) * fireworkScale;
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
-    const speed = (level === 1 ? 6 : 3) + Math.random() * 2;
+    const speed = (Math.random() * 6 + 2) * (generation === 1 ? 1 : 0.5);
     const vx = Math.cos(angle) * speed;
     const vy = Math.sin(angle) * speed;
-    const size = level === 1 ? Math.random() * 2 + 1 : Math.random() * 1 + 0.5;
-    const life = level === 1 ? 80 + Math.random() * 20 : 40 + Math.random() * 10;
-    const newColor = `hsl(${Math.random() * 360}, 100%, 60%)`;
-    particles.push(new Particle(x, y, newColor, vx, vy, life, size, level));
+    const size = (Math.random() * 2 + 1) * fireworkScale * (generation === 1 ? 1 : 0.6);
+    const life = (80 + Math.random() * 20) / (generation === 1 ? 1 : 1.5);
+    const newColor = generation === 1
+      ? `hsl(${Math.random() * 360}, 100%, 60%)`
+      : color;
+    particles.push(new Particle(x, y, newColor, vx, vy, life, size, generation));
   }
 }
 
-// 🌸 显示文字特效函数
 function showLoveText(x, y) {
   const text = document.createElement("div");
   text.className = "love-text";
   text.innerText = "贾JJ送我爱心 ❤️";
   document.body.appendChild(text);
-
   text.style.left = `${x - 100}px`;
   text.style.top = `${y - 50}px`;
 
@@ -181,21 +176,16 @@ function showLoveText(x, y) {
     text.style.opacity = 0;
     text.style.transform = "translateY(-80px) scale(1.2)";
   }, 100);
-
-  setTimeout(() => {
-    text.remove();
-  }, 2500);
+  setTimeout(() => text.remove(), 2500);
 }
 
 canvas.addEventListener("click", (e) => {
   const color = `hsl(${Math.random() * 360}, 100%, 50%)`;
-  fireworks.push(new Firework(e.clientX / zoom, h / zoom, e.clientX / zoom, e.clientY / zoom, color));
+  fireworks.push(new Firework(e.clientX, h, e.clientX, e.clientY, color));
 });
 
 function animate() {
   requestAnimationFrame(animate);
-  ctx.save();
-  ctx.scale(zoom, zoom);
   ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
   ctx.fillRect(0, 0, w, h);
 
@@ -210,8 +200,6 @@ function animate() {
     p.draw();
     if (p.life <= 0) particles.splice(i, 1);
   });
-
-  ctx.restore();
 }
 animate();
 </script>
