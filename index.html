@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎆 贾JJ送我爱心！</title>
+<title>🎆</title>
 <style>
   html, body {
     margin: 0;
@@ -85,7 +85,7 @@ class Particle {
   update() {
     this.x += this.vx;
     this.y += this.vy;
-    this.vy += 0.05; // 重力
+    this.vy += 0.03; // 重力
     this.life -= 1;
 
     // 有概率在生命后期触发二级小烟花
@@ -156,7 +156,7 @@ function explode(x, y, color, generation = 1) {
     const vx = Math.cos(angle) * speed;
     const vy = Math.sin(angle) * speed;
     const size = (Math.random() * 2 + 1) * fireworkScale * (generation === 1 ? 1 : 0.6);
-    const life = (80 + Math.random() * 20) / (generation === 1 ? 1 : 1.5);
+    const life = (80 + Math.random() * 40) / (generation === 1 ? 1 : 1.5);
     const newColor = generation === 1
       ? `hsl(${Math.random() * 360}, 100%, 60%)`
       : color;
@@ -167,7 +167,7 @@ function explode(x, y, color, generation = 1) {
 function showLoveText(x, y) {
   const text = document.createElement("div");
   text.className = "love-text";
-  text.innerText = "贾JJ送我爱心 ❤️";
+  text.innerText = "❤️";
   document.body.appendChild(text);
   text.style.left = `${x - 100}px`;
   text.style.top = `${y - 50}px`;
