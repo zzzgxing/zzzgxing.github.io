@@ -85,7 +85,7 @@ class Particle {
   update() {
     this.x += this.vx;
     this.y += this.vy;
-    this.vy += 0.03; // 重力
+    this.vy += 0.02; // 重力
     this.life -= 1;
 
     // 有概率在生命后期触发二级小烟花
@@ -152,11 +152,11 @@ function explode(x, y, color, generation = 1) {
   const count = (generation === 1 ? 80 : 40) * fireworkScale;
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
-    const speed = (Math.random() * 3 + 2) * (generation === 1 ? 1 : 0.5);
+    const speed = (Math.random() * 1.5 + 2) * (generation === 1 ? 1 : 0.5);
     const vx = Math.cos(angle) * speed;
     const vy = Math.sin(angle) * speed;
     const size = (Math.random() * 2 + 1) * fireworkScale * (generation === 1 ? 1 : 0.6);
-    const life = (80 + Math.random() * 40) / (generation === 1 ? 1 : 1.5);
+    const life = (80 + Math.random() * 80) / (generation === 1 ? 1 : 1.5);
     const newColor = generation === 1
       ? `hsl(${Math.random() * 360}, 100%, 60%)`
       : color;
