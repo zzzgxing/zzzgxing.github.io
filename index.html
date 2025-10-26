@@ -1,36 +1,149 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
-  <meta charset="UTF-8">
-  <title>粒子背景</title>
-  <style>
-    body,html{margin:0;padding:0;overflow:hidden;background:#000;}
-    canvas{position:fixed;top:0;left:0;}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎆 点击放烟花</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: radial-gradient(circle at bottom, #000010 0%, #000000 100%);
+    cursor: crosshair;
+  }
+  canvas {
+    display: block;
+  }
+</style>
 </head>
 <body>
-<canvas id="canvas"></canvas>
+<canvas id="fireworks"></canvas>
+
 <script>
-const c = document.getElementById('canvas');
-const ctx = c.getContext('2d');
-let w,h,particles=[];
-function resize(){w=window.innerWidth;h=window.innerHeight;c.width=w;c.height=h;}
-window.onresize=resize;resize();
-document.addEventListener('mousemove',e=>{
-  particles.push({x:e.x,y:e.y,vx:(Math.random()-0.5)*2,vy:(Math.random()-0.5)*2,life:80});
-});
-function draw(){
-  ctx.fillStyle='rgba(0,0,0,0.1)';ctx.fillRect(0,0,w,h);
-  particles.forEach(p=>{
-    ctx.beginPath();
-    ctx.arc(p.x,p.y,2,0,Math.PI*2);
-    ctx.fillStyle='white';ctx.fill();
-    p.x+=p.vx;p.y+=p.vy;p.life--;
-  });
-  particles=particles.filter(p=>p.life>0);
-  requestAnimationFrame(draw);
+const canvas = document.getElementById("fireworks");
+const ctx = canvas.getContext("2d");
+let w, h;
+function resize() {
+  w = canvas.width = window.innerWidth;
+  h = canvas.height = window.innerHeight;
 }
-draw();
+window.addEventListener("resize", resize);
+resize();
+
+// 粒子类
+class Particle {
+  constructor(x, y, color, vx, vy, life, size) {
+    this.x = x;
+    this.y = y;
+    this.color = color;
+    this.vx = vx;
+    this.vy = vy;
+    this.life = life;
+    this.size = size;
+  }
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.vy += 0.05; // 重力
+    this.life -= 1;
+  }
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+  }
+}
+
+// 烟花上升 + 爆炸
+class Firework {
+  constructor(sx, sy, tx, ty, color) {
+    this.x = sx;
+    this.y = sy;
+    this.tx = tx;
+    this.ty = ty;
+    this.color = color;
+    this.trail = [];
+    this.exploded = false;
+  }
+  update() {
+    if (!this.exploded) {
+      const dx = this.tx - this.x;
+      const dy = this.ty - this.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const speed = Math.max(4, dist / 25);
+      this.x += (dx / dist) * speed;
+      this.y += (dy / dist) * speed;
+      this.trail.push({x:this.x,y:this.y});
+      if (this.trail.length > 8) this.trail.shift();
+
+      // 到达目标点
+      if (dist < 10) {
+        this.exploded = true;
+        explode(this.x, this.y, this.color);
+      }
+    }
+  }
+  draw() {
+    if (!this.exploded) {
+      ctx.beginPath();
+      ctx.moveTo(this.trail[0]?.x || this.x, this.trail[0]?.y || this.y);
+      for (let t of this.trail) ctx.lineTo(t.x, t.y);
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = this.color;
+      ctx.fill();
+    }
+  }
+}
+
+let fireworks = [];
+let particles = [];
+
+function explode(x, y, color) {
+  const count = 60 + Math.random() * 40;
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = Math.random() * 6 + 2;
+    const vx = Math.cos(angle) * speed;
+    const vy = Math.sin(angle) * speed;
+    const size = Math.random() * 2 + 1;
+    const life = 80 + Math.random() * 20;
+    const newColor = `hsl(${Math.random() * 360}, 100%, 60%)`;
+    particles.push(new Particle(x, y, newColor, vx, vy, life, size));
+  }
+}
+
+// 点击触发烟花
+canvas.addEventListener("click", (e) => {
+  const color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+  fireworks.push(new Firework(
+    e.clientX, h, e.clientX, e.clientY, color
+  ));
+});
+
+function animate() {
+  requestAnimationFrame(animate);
+  ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+  ctx.fillRect(0, 0, w, h);
+
+  fireworks.forEach((fw, i) => {
+    fw.update();
+    fw.draw();
+    if (fw.exploded) fireworks.splice(i, 1);
+  });
+
+  particles.forEach((p, i) => {
+    p.update();
+    p.draw();
+    if (p.life <= 0) particles.splice(i, 1);
+  });
+}
+animate();
 </script>
 </body>
 </html>
