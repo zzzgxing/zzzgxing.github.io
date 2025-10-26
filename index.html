@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎆 点击放烟花</title>
+<title>🎆 贾JJ带我跑图!!!!!!!</title>
 <style>
   html, body {
     margin: 0;
@@ -15,9 +15,27 @@
   canvas {
     display: block;
   }
+  h1 {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: "Microsoft Yahei", sans-serif;
+    font-size: 48px;
+    color: #fff;
+    text-shadow: 0 0 20px #ff3399, 0 0 40px #ff66cc, 0 0 60px #ff99ff;
+    animation: glow 3s ease-in-out infinite alternate;
+    user-select: none;
+    pointer-events: none;
+  }
+  @keyframes glow {
+    from { opacity: 0.4; text-shadow: 0 0 10px #ff66ff, 0 0 20px #ff33cc; }
+    to { opacity: 1; text-shadow: 0 0 30px #ff99ff, 0 0 60px #ff66cc; }
+  }
 </style>
 </head>
 <body>
+<h1>贾JJ带我跑图!!!!!!!</h1>
 <canvas id="fireworks"></canvas>
 
 <script>
@@ -31,7 +49,6 @@ function resize() {
 window.addEventListener("resize", resize);
 resize();
 
-// 粒子类
 class Particle {
   constructor(x, y, color, vx, vy, life, size) {
     this.x = x;
@@ -45,7 +62,7 @@ class Particle {
   update() {
     this.x += this.vx;
     this.y += this.vy;
-    this.vy += 0.05; // 重力
+    this.vy += 0.05;
     this.life -= 1;
   }
   draw() {
@@ -56,7 +73,6 @@ class Particle {
   }
 }
 
-// 烟花上升 + 爆炸
 class Firework {
   constructor(sx, sy, tx, ty, color) {
     this.x = sx;
@@ -77,8 +93,6 @@ class Firework {
       this.y += (dy / dist) * speed;
       this.trail.push({x:this.x,y:this.y});
       if (this.trail.length > 8) this.trail.shift();
-
-      // 到达目标点
       if (dist < 10) {
         this.exploded = true;
         explode(this.x, this.y, this.color);
@@ -118,12 +132,9 @@ function explode(x, y, color) {
   }
 }
 
-// 点击触发烟花
 canvas.addEventListener("click", (e) => {
   const color = `hsl(${Math.random() * 360}, 100%, 50%)`;
-  fireworks.push(new Firework(
-    e.clientX, h, e.clientX, e.clientY, color
-  ));
+  fireworks.push(new Firework(e.clientX, h, e.clientX, e.clientY, color));
 });
 
 function animate() {
