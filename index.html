@@ -3,158 +3,120 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎆 贾JJ带我跑图!!!!!!!</title>
+<title>贾JJ送我爱心！</title>
 <style>
   html, body {
     margin: 0;
     height: 100%;
     overflow: hidden;
-    background: radial-gradient(circle at bottom, #000010 0%, #000000 100%);
-    cursor: crosshair;
-  }
-  canvas {
-    display: block;
-  }
-  h1 {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    background: black;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     font-family: "Microsoft Yahei", sans-serif;
-    font-size: 48px;
-    color: #fff;
-    text-shadow: 0 0 20px #ff3399, 0 0 40px #ff66cc, 0 0 60px #ff99ff;
-    animation: glow 3s ease-in-out infinite alternate;
-    user-select: none;
-    pointer-events: none;
+    cursor: pointer;
   }
-  @keyframes glow {
-    from { opacity: 0.4; text-shadow: 0 0 10px #ff66ff, 0 0 20px #ff33cc; }
-    to { opacity: 1; text-shadow: 0 0 30px #ff99ff, 0 0 60px #ff66cc; }
+
+  .char {
+    font-size: 64px;
+    color: #ff66cc;
+    text-shadow: 0 0 20px #ff3399, 0 0 40px #ff66cc, 0 0 80px #ff99ff;
+    opacity: 0;
+    transform: scale(0.5) rotate(0deg);
+    position: relative;
+    display: inline-block;
+    transition: all 0.5s ease-out;
+  }
+
+  .char.show {
+    opacity: 1;
+    transform: scale(1.2) rotate(15deg);
+  }
+
+  .heart {
+    position: absolute;
+    font-size: 24px;
+    color: #ff69b4;
+    pointer-events: none;
+    animation: floatUp 1s ease-out forwards;
+  }
+
+  @keyframes floatUp {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-150px) scale(0.8); opacity: 0; }
+  }
+
+  .fade-out {
+    animation: fadeOut 2s forwards;
+  }
+
+  @keyframes fadeOut {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
   }
 </style>
 </head>
 <body>
-<h1>贾JJ带我跑图!!!!!!!</h1>
-<canvas id="fireworks"></canvas>
+
+<div id="container"></div>
 
 <script>
-const canvas = document.getElementById("fireworks");
-const ctx = canvas.getContext("2d");
-let w, h;
-function resize() {
-  w = canvas.width = window.innerWidth;
-  h = canvas.height = window.innerHeight;
-}
-window.addEventListener("resize", resize);
-resize();
+const container = document.getElementById('container');
+const message = "贾JJ送我爱心！";
+let animating = false;
 
-class Particle {
-  constructor(x, y, color, vx, vy, life, size) {
-    this.x = x;
-    this.y = y;
-    this.color = color;
-    this.vx = vx;
-    this.vy = vy;
-    this.life = life;
-    this.size = size;
-  }
-  update() {
-    this.x += this.vx;
-    this.y += this.vy;
-    this.vy += 0.05;
-    this.life -= 1;
-  }
-  draw() {
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-    ctx.fillStyle = this.color;
-    ctx.fill();
-  }
-}
+function showMessage() {
+  if (animating) return;
+  animating = true;
+  container.innerHTML = '';
 
-class Firework {
-  constructor(sx, sy, tx, ty, color) {
-    this.x = sx;
-    this.y = sy;
-    this.tx = tx;
-    this.ty = ty;
-    this.color = color;
-    this.trail = [];
-    this.exploded = false;
+  const chars = [];
+  for (let i = 0; i < message.length; i++) {
+    const span = document.createElement('span');
+    span.textContent = message[i];
+    span.className = 'char';
+    container.appendChild(span);
+    chars.push(span);
   }
-  update() {
-    if (!this.exploded) {
-      const dx = this.tx - this.x;
-      const dy = this.ty - this.y;
-      const dist = Math.sqrt(dx*dx + dy*dy);
-      const speed = Math.max(4, dist / 25);
-      this.x += (dx / dist) * speed;
-      this.y += (dy / dist) * speed;
-      this.trail.push({x:this.x,y:this.y});
-      if (this.trail.length > 8) this.trail.shift();
-      if (dist < 10) {
-        this.exploded = true;
-        explode(this.x, this.y, this.color);
+
+  // 从左到右显示每个字 + 特效
+  chars.forEach((char, i) => {
+    setTimeout(() => {
+      char.classList.add('show');
+      for (let j = 0; j < 6; j++) {
+        createHeart(char);
       }
-    }
-  }
-  draw() {
-    if (!this.exploded) {
-      ctx.beginPath();
-      ctx.moveTo(this.trail[0]?.x || this.x, this.trail[0]?.y || this.y);
-      for (let t of this.trail) ctx.lineTo(t.x, t.y);
-      ctx.strokeStyle = this.color;
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
-      ctx.fillStyle = this.color;
-      ctx.fill();
-    }
-  }
-}
-
-let fireworks = [];
-let particles = [];
-
-function explode(x, y, color) {
-  const count = 60 + Math.random() * 40;
-  for (let i = 0; i < count; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const speed = Math.random() * 6 + 2;
-    const vx = Math.cos(angle) * speed;
-    const vy = Math.sin(angle) * speed;
-    const size = Math.random() * 2 + 1;
-    const life = 80 + Math.random() * 20;
-    const newColor = `hsl(${Math.random() * 360}, 100%, 60%)`;
-    particles.push(new Particle(x, y, newColor, vx, vy, life, size));
-  }
-}
-
-canvas.addEventListener("click", (e) => {
-  const color = `hsl(${Math.random() * 360}, 100%, 50%)`;
-  fireworks.push(new Firework(e.clientX, h, e.clientX, e.clientY, color));
-});
-
-function animate() {
-  requestAnimationFrame(animate);
-  ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
-  ctx.fillRect(0, 0, w, h);
-
-  fireworks.forEach((fw, i) => {
-    fw.update();
-    fw.draw();
-    if (fw.exploded) fireworks.splice(i, 1);
+    }, i * 300);
   });
 
-  particles.forEach((p, i) => {
-    p.update();
-    p.draw();
-    if (p.life <= 0) particles.splice(i, 1);
-  });
+  // 所有字显示完后，3 秒渐隐
+  setTimeout(() => {
+    container.classList.add('fade-out');
+    setTimeout(() => {
+      container.classList.remove('fade-out');
+      container.innerHTML = '';
+      animating = false;
+    }, 2000);
+  }, message.length * 300 + 1000);
 }
-animate();
+
+// 点击屏幕触发
+document.body.addEventListener('click', showMessage);
+
+function createHeart(target) {
+  const heart = document.createElement('div');
+  heart.className = 'heart';
+  heart.textContent = ['💖','🌸','💞','✨'][Math.floor(Math.random()*4)];
+  document.body.appendChild(heart);
+
+  const rect = target.getBoundingClientRect();
+  const x = rect.left + rect.width / 2 + (Math.random() * 60 - 30);
+  const y = rect.top + rect.height / 2 + (Math.random() * 30 - 15);
+  heart.style.left = `${x}px`;
+  heart.style.top = `${y}px`;
+
+  setTimeout(() => heart.remove(), 1000);
+}
 </script>
 </body>
 </html>
