@@ -1,1 +1,36 @@
-ψ(｀∇´)ψ
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>粒子背景</title>
+  <style>
+    body,html{margin:0;padding:0;overflow:hidden;background:#000;}
+    canvas{position:fixed;top:0;left:0;}
+  </style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<script>
+const c = document.getElementById('canvas');
+const ctx = c.getContext('2d');
+let w,h,particles=[];
+function resize(){w=window.innerWidth;h=window.innerHeight;c.width=w;c.height=h;}
+window.onresize=resize;resize();
+document.addEventListener('mousemove',e=>{
+  particles.push({x:e.x,y:e.y,vx:(Math.random()-0.5)*2,vy:(Math.random()-0.5)*2,life:80});
+});
+function draw(){
+  ctx.fillStyle='rgba(0,0,0,0.1)';ctx.fillRect(0,0,w,h);
+  particles.forEach(p=>{
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,2,0,Math.PI*2);
+    ctx.fillStyle='white';ctx.fill();
+    p.x+=p.vx;p.y+=p.vy;p.life--;
+  });
+  particles=particles.filter(p=>p.life>0);
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>
