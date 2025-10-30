@@ -5,7 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>便签promax</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+  }
   body {
     overflow: hidden;
     height: 100vh;
@@ -93,22 +101,18 @@ function createCards() {
 
     cards.push({
       el: c,
-      // 每个卡片独立的轨道半径与高度
       radius: 180 + Math.random() * 250,
       heightOffset: Math.random() * 300 - 150,
       speed: 0.5 + Math.random() * 0.8,
       tilt: (Math.random() - 0.5) * 40,
       flipSpeed: 0.02 + Math.random() * 0.02,
       flipAngle: Math.random() * Math.PI * 2,
-      // 吸引参数：每个卡片有自己缓动速度
       attractStrength: 0.02 + Math.random() * 0.05,
-      // 初始位置（分散）
       x: Math.random() * window.innerWidth,
       y: Math.random() * window.innerHeight,
       z: 0
     });
 
-    // 延迟淡入
     setTimeout(() => (c.style.opacity = 1), 200 + Math.random() * 600);
   }
 }
@@ -117,27 +121,21 @@ function createCards() {
 function animate() {
   if (!running) return;
 
-  // 中心被目标点吸引（中心本身有惯性）
   centerX += (targetX - centerX) * 0.05;
   centerY += (targetY - centerY) * 0.05;
 
-  // 旋转偏移
   angleOffset += baseSpeed * speedFactor;
 
   cards.forEach((c, i) => {
     const angle = angleOffset * c.speed + i * (Math.PI * 2 / cardCount);
-
-    // 各卡片的目标位置：绕当前中心旋转
     const targetX = centerX + Math.cos(angle) * c.radius;
     const targetY = centerY + Math.sin(angle) * c.radius * 0.6 + c.heightOffset;
     const targetZ = Math.sin(angle * 2) * 150;
 
-    // 每个卡片以自己的吸引力缓动前往目标点
     c.x += (targetX - c.x) * c.attractStrength;
     c.y += (targetY - c.y) * c.attractStrength;
     c.z += (targetZ - c.z) * c.attractStrength;
 
-    // 翻转与倾斜动画
     c.flipAngle += c.flipSpeed;
     const rotateY = Math.sin(c.flipAngle) * c.tilt;
     const rotateX = Math.cos(c.flipAngle) * 10;
@@ -170,7 +168,6 @@ function explode() {
     c.el.style.opacity = 0;
   });
 
-  // 爆炸后重新生成
   setTimeout(() => {
     cards.forEach((c) => c.el.remove());
     cards = [];
