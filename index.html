@@ -1,199 +1,189 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>堆积便签墙</title>
-    <style>
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        background-image: linear-gradient(0deg, #eee 1px, transparent 0),
-          linear-gradient(90deg, #eee 1px, transparent 0);
-        background-size: 30px 30px;
-        min-height: 100vh;
-        overflow: hidden;
-      }
-      #board {
-        position: relative;
-        width: 100vw;
-        height: 100vh;
-        overflow: hidden;
-      }
-      .card {
-        position: absolute;
-        width: 220px;
-        border-radius: 12px;
-        box-shadow: 0 16px 35px rgba(0, 0, 0, 0.2);
-        background: #fff;
-        border: 1px solid rgba(0, 0, 0, 0.08);
-        overflow: hidden;
-        opacity: 0;
-        transform-origin: center;
-        transition: transform 0.6s ease, left 0.8s ease, top 0.8s ease, opacity 0.8s ease;
-      }
-      .card-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 10px 12px;
-        background: rgba(255, 255, 255, 0.7);
-      }
-      .card-title {
-        font-size: 13px;
-        font-weight: 600;
-        color: rgba(0, 0, 0, 0.55);
-        padding-left: 10px;
-        flex: 1;
-      }
-      .card-body {
-        padding: 16px;
-        font-size: 16px;
-        line-height: 1.4;
-        font-weight: 600;
-        color: rgba(0, 0, 0, 0.72);
-      }
-    </style>
-  </head>
-  <body>
-    <div id="board"></div>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>便签promax</title>
+<style>
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+  }
+  body {
+    overflow: hidden;
+    height: 100vh;
+    background: radial-gradient(circle at center, #f8f8f8, #dbe6f6);
+    perspective: 1000px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    cursor: none;
+  }
+  #board {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+  }
+  .card {
+    position: absolute;
+    width: 220px;
+    height: 60px;
+    border-radius: 10px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+    background: #fff;
+    text-align: center;
+    padding: 16px;
+    font-weight: 600;
+    color: #333;
+    opacity: 0;
+    transform-origin: center;
+    backface-visibility: hidden;
+    border: 1px solid rgba(0,0,0,0.1);
+    transition: opacity 1s ease;
+  }
+</style>
+</head>
+<body>
+<div id="board"></div>
 
-    <script>
-      const board = document.getElementById("board");
-      const messages = [
-        "保持好心情",
-        "多喝水哦",
-        "今天辛苦啦",
-        "早点休息",
-        "记得吃水果",
-        "加油，你可以的",
-        "祝你顺利",
-        "保持微笑呀",
-        "愿所有烦恼都消失",
-        "期待下一次见面",
-        "梦想总会实现",
-        "天气冷了，多穿衣服",
-        "记得给自己放松",
-        "每天都要元气满满",
-        "今天也要好好爱自己",
-        "适当休息一下"
-      ];
-      const colors = [
-        "#ffe0e3",
-        "#c7f0ff",
-        "#ffd8a8",
-        "#d9f2d9",
-        "#e5d7ff",
-        "#f9f7d9",
-        "#d2f0f8",
-        "#ffd4f5"
-      ];
+<script>
+const board = document.getElementById("board");
+const messages = [
+  "保持好心情","多喝水哦","今天辛苦啦","早点休息","加油，你可以的",
+  "祝你顺利","愿所有烦恼都消失","每天都要元气满满","好梦！","继续发光✨"
+];
+const colors = ["#ffdce0","#d2f5ff","#ffecb3","#d7f9d0","#e4ddff","#fff3cd"];
 
-      let cards = [];
-      const maxCards = 60;
-      let stacking = true;
+let cards = [];
+const cardCount = 30;
+let angleOffset = 0;
+let running = true;
+let speedFactor = 1;
+let baseSpeed = 0.008;
 
-      function randomFrom(arr) {
-        return arr[Math.floor(Math.random() * arr.length)];
-      }
+// 龙卷风中心（实际中心点）
+let centerX = window.innerWidth / 2;
+let centerY = window.innerHeight / 2;
 
-      function createCard() {
-        const card = document.createElement("div");
-        card.className = "card";
-        card.style.background = randomFrom(colors);
-        card.innerHTML = `
-          <div class="card-header">
-            <div class="card-title">温馨提示</div>
-          </div>
-          <div class="card-body">${randomFrom(messages)}</div>
-        `;
+// 鼠标目标点（引力中心）
+let targetX = centerX;
+let targetY = centerY;
 
-        // 从四个方向之一飞入
-        const side = randomFrom(["left", "right", "top", "bottom"]);
-        let startX, startY;
+// 鼠标控制目标点移动
+document.addEventListener("mousemove", e => {
+  targetX = e.clientX;
+  targetY = e.clientY;
+});
 
-        switch (side) {
-          case "left":
-            startX = -250;
-            startY = Math.random() * window.innerHeight;
-            break;
-          case "right":
-            startX = window.innerWidth + 250;
-            startY = Math.random() * window.innerHeight;
-            break;
-          case "top":
-            startX = Math.random() * window.innerWidth;
-            startY = -200;
-            break;
-          case "bottom":
-            startX = Math.random() * window.innerWidth;
-            startY = window.innerHeight + 200;
-            break;
-        }
+// 鼠标按下时加速旋转
+document.addEventListener("mousedown", () => {
+  speedFactor = 3;
+});
 
-        const targetX =
-          window.innerWidth * 0.3 +
-          Math.random() * window.innerWidth * 0.4 -
-          110; // 中心40%
-        const targetY =
-          window.innerHeight * 0.3 +
-          Math.random() * window.innerHeight * 0.4 -
-          90; // 中心40%
+// 鼠标松开时爆炸再重组
+document.addEventListener("mouseup", () => {
+  speedFactor = 1;
+  explode();
+});
 
-        const angle = (Math.random() - 0.5) * 20;
-        card.style.left = `${startX}px`;
-        card.style.top = `${startY}px`;
-        card.style.transform = `rotate(${angle}deg) scale(0.6)`;
-        card.style.opacity = 0;
-        board.appendChild(card);
-        cards.push(card);
+// 初始化卡片
+function createCards() {
+  for (let i = 0; i < cardCount; i++) {
+    const c = document.createElement("div");
+    c.className = "card";
+    c.textContent = messages[Math.floor(Math.random() * messages.length)];
+    c.style.background = colors[Math.floor(Math.random() * colors.length)];
+    board.appendChild(c);
 
-        // 动画靠近中心
-        setTimeout(() => {
-          card.style.left = `${targetX}px`;
-          card.style.top = `${targetY}px`;
-          card.style.opacity = 1;
-          card.style.transform = `rotate(${angle}deg) scale(1)`;
-        }, 20 + Math.random() * 100);
-      }
+    cards.push({
+      el: c,
+      radius: 180 + Math.random() * 250,
+      heightOffset: Math.random() * 300 - 150,
+      speed: 0.5 + Math.random() * 0.8,
+      tilt: (Math.random() - 0.5) * 40,
+      flipSpeed: 0.02 + Math.random() * 0.02,
+      flipAngle: Math.random() * Math.PI * 2,
+      attractStrength: 0.02 + Math.random() * 0.05,
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      z: 0
+    });
 
-      function spawnCards() {
-        if (!stacking) return;
-        if (cards.length >= maxCards) return;
-        createCard();
-        setTimeout(spawnCards, 180 + Math.random() * 220);
-      }
+    setTimeout(() => (c.style.opacity = 1), 200 + Math.random() * 600);
+  }
+}
 
-      function explodeCards() {
-        stacking = false;
-        cards.forEach((card) => {
-          const angle = Math.random() * 2 * Math.PI;
-          const distance = 400 + Math.random() * 400;
-          const dx = Math.cos(angle) * distance;
-          const dy = Math.sin(angle) * distance;
-          const rot = (Math.random() - 0.5) * 120;
-          card.style.transition =
-            "transform 1s ease-out, left 1s ease-out, top 1s ease-out, opacity 1s ease";
-          card.style.left = `${parseFloat(card.style.left) + dx}px`;
-          card.style.top = `${parseFloat(card.style.top) + dy}px`;
-          card.style.transform = `rotate(${rot}deg) scale(1.3)`;
-          card.style.opacity = 0;
-        });
+// 动画主循环
+function animate() {
+  if (!running) return;
 
-        setTimeout(() => {
-          cards.forEach((c) => c.remove());
-          cards = [];
-          stacking = true;
-          spawnCards();
-        }, 1100);
-      }
+  // 中心缓慢被目标点吸引
+  centerX += (targetX - centerX) * 0.05;
+  centerY += (targetY - centerY) * 0.05;
 
-      document.addEventListener("click", explodeCards);
-      spawnCards();
-    </script>
-  </body>
+  angleOffset += baseSpeed * speedFactor;
+
+  cards.forEach((c, i) => {
+    const angle = angleOffset * c.speed + i * (Math.PI * 2 / cardCount);
+    const targetX = centerX + Math.cos(angle) * c.radius;
+    const targetY = centerY + Math.sin(angle) * c.radius * 0.6 + c.heightOffset;
+    const targetZ = Math.sin(angle * 2) * 150;
+
+    c.x += (targetX - c.x) * c.attractStrength;
+    c.y += (targetY - c.y) * c.attractStrength;
+    c.z += (targetZ - c.z) * c.attractStrength;
+
+    c.flipAngle += c.flipSpeed;
+    const rotateY = Math.sin(c.flipAngle) * c.tilt;
+    const rotateX = Math.cos(c.flipAngle) * 10;
+
+    // 更新 transform
+    c.el.style.transform = `
+      translate3d(${c.x - 110}px, ${c.y - 60}px, ${c.z}px)
+      rotateY(${rotateY}deg)
+      rotateX(${rotateX}deg)
+      scale(${1 + Math.sin(angle * 3) * 0.05})
+    `;
+
+    // ✅ 根据 z 值动态调整 z-index，避免穿模
+    c.el.style.zIndex = Math.floor(1000 + c.z);
+  });
+
+  requestAnimationFrame(animate);
+}
+
+// 爆炸效果
+function explode() {
+  running = false;
+  cards.forEach((c) => {
+    const angle = Math.random() * 2 * Math.PI;
+    const dist = 800 + Math.random() * 400;
+    const dx = Math.cos(angle) * dist;
+    const dy = Math.sin(angle) * dist;
+    const dz = (Math.random() - 0.5) * 600;
+    c.el.style.transition = "transform 1.2s ease-out, opacity 1.2s ease";
+    c.el.style.transform = `translate3d(${dx}px, ${dy}px, ${dz}px)
+      rotateY(${Math.random() * 720}deg)
+      rotateX(${Math.random() * 720}deg)
+      scale(0.8)`;
+    c.el.style.opacity = 0;
+  });
+
+  setTimeout(() => {
+    cards.forEach((c) => c.el.remove());
+    cards = [];
+    running = true;
+    createCards();
+    animate();
+  }, 1300);
+}
+
+createCards();
+animate();
+</script>
+</body>
 </html>
