@@ -1,208 +1,207 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
-
+<html lang="zh">
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>星尘</title>
-    <style>
-        body {
-            overflow: hidden;
-            margin: 0;
-            background: #160016;
-            font-family: sans-serif;
-        }
-
-        .color-controls {
-            position: fixed;
-            left: 20px;
-            bottom: 20px;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 10px 15px;
-            border-radius: 12px;
-            backdrop-filter: blur(6px);
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
-        }
-
-        .color-controls label {
-            font-size: 14px;
-            color: #fff;
-            margin-right: 4px;
-        }
-
-        .color-controls input[type="color"] {
-            width: 36px;
-            height: 36px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            background: none;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎆</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: radial-gradient(circle at bottom, #000010 0%, #000000 100%);
+    cursor: crosshair;
+  }
+  canvas {
+    display: block;
+  }
+  .love-text {
+    position: absolute;
+    font-family: "Microsoft Yahei", sans-serif;
+    font-size: 48px;
+    color: #ff99cc;
+    text-shadow: 0 0 20px #ff3399, 0 0 40px #ff66cc, 0 0 60px #ff99ff;
+    opacity: 1;
+    transition: opacity 2s ease-out, transform 2s ease-out;
+    pointer-events: none;
+    user-select: none;
+  }
+  .control-panel {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: rgba(20, 20, 30, 0.7);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 10px;
+    font-family: sans-serif;
+    z-index: 10;
+  }
+  .control-panel label {
+    display: block;
+    margin-bottom: 5px;
+  }
+</style>
 </head>
-
 <body>
-    <div class="color-controls">
-        <label>颜色 1：</label><input type="color" id="color1" value="#e8e34f">
-        <label>颜色 2：</label><input type="color" id="color2" value="#9f1465">
-    </div>
+<canvas id="fireworks"></canvas>
 
-    <script type="module">
-        import * as THREE from "https://cdn.skypack.dev/three@0.136.0";
-        import { OrbitControls } from "https://cdn.skypack.dev/three@0.136.0/examples/jsm/controls/OrbitControls";
+<div class="control-panel">
+  <label>烟花大小: <span id="sizeValue">1.0</span></label>
+  <input type="range" id="fireworkSize" min="0.3" max="3" step="0.1" value="1">
+</div>
 
-        let scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x160016);
+<script>
+const canvas = document.getElementById("fireworks");
+const ctx = canvas.getContext("2d");
+const sizeSlider = document.getElementById("fireworkSize");
+const sizeValue = document.getElementById("sizeValue");
 
-        let camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 1, 1000);
-        camera.position.set(0, 4, 21);
+let w, h;
+function resize() {
+  w = canvas.width = window.innerWidth;
+  h = canvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resize);
+resize();
 
-        let renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(innerWidth, innerHeight);
-        document.body.appendChild(renderer.domElement);
+let fireworkScale = parseFloat(sizeSlider.value);
+sizeSlider.addEventListener("input", () => {
+  fireworkScale = parseFloat(sizeSlider.value);
+  sizeValue.textContent = fireworkScale.toFixed(1);
+});
 
-        window.addEventListener("resize", () => {
-            camera.aspect = innerWidth / innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(innerWidth, innerHeight);
-        });
+class Particle {
+  constructor(x, y, color, vx, vy, life, size, generation = 1) {
+    this.x = x;
+    this.y = y;
+    this.color = color;
+    this.vx = vx;
+    this.vy = vy;
+    this.life = life;
+    this.size = size;
+    this.generation = generation; // 第几代烟花
+  }
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.vy += 0.02; // 重力
+    this.life -= 1;
 
-        let controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
+    // 有概率在生命后期触发二级小烟花
+    if (this.life < 10 && this.generation === 1 && Math.random() < 0.05) {
+      explode(this.x, this.y, this.color, 2);
+      this.life = 0;
+    }
+  }
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+  }
+}
 
-        // 🌸 初始颜色（金黄 + 玫红）
-        let gu = {
-            time: { value: 0 },
-            color1: { value: new THREE.Color(0xe8e34f) },
-            color2: { value: new THREE.Color(0x9f1465) }
-        };
+class Firework {
+  constructor(sx, sy, tx, ty, color) {
+    this.x = sx;
+    this.y = sy;
+    this.tx = tx;
+    this.ty = ty;
+    this.color = color;
+    this.trail = [];
+    this.exploded = false;
+  }
+  update() {
+    if (!this.exploded) {
+      const dx = this.tx - this.x;
+      const dy = this.ty - this.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const speed = Math.max(4, dist / 25);
+      this.x += (dx / dist) * speed;
+      this.y += (dy / dist) * speed;
+      this.trail.push({x:this.x, y:this.y});
+      if (this.trail.length > 8) this.trail.shift();
+      if (dist < 10) {
+        this.exploded = true;
+        explode(this.x, this.y, this.color, 1);
+        showLoveText(this.x, this.y);
+      }
+    }
+  }
+  draw() {
+    if (!this.exploded) {
+      ctx.beginPath();
+      ctx.moveTo(this.trail[0]?.x || this.x, this.trail[0]?.y || this.y);
+      for (let t of this.trail) ctx.lineTo(t.x, t.y);
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = this.color;
+      ctx.fill();
+    }
+  }
+}
 
-        let sizes = [];
-        let shift = [];
+let fireworks = [];
+let particles = [];
 
-        function pushShift() {
-            shift.push(
-                Math.random() * Math.PI,
-                Math.random() * Math.PI * 2,
-                (Math.random() * 0.9 + 0.1) * Math.PI * 0.1,
-                Math.random() * 0.9 + 0.1
-            );
-        }
+function explode(x, y, color, generation = 1) {
+  const count = (generation === 1 ? 80 : 40) * fireworkScale;
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = (Math.random() * 1.5 + 2) * (generation === 1 ? 1 : 0.5);
+    const vx = Math.cos(angle) * speed;
+    const vy = Math.sin(angle) * speed;
+    const size = (Math.random() * 2 + 1) * fireworkScale * (generation === 1 ? 1 : 0.6);
+    const life = (80 + Math.random() * 80) / (generation === 1 ? 1 : 1.5);
+    const newColor = generation === 1
+      ? `hsl(${Math.random() * 360}, 100%, 60%)`
+      : color;
+    particles.push(new Particle(x, y, newColor, vx, vy, life, size, generation));
+  }
+}
 
-        // 🌟 球体部分
-        let pts = new Array(50000).fill().map(() => {
-            sizes.push(Math.random() * 1.5 + 0.5);
-            pushShift();
-            return new THREE.Vector3().randomDirection().multiplyScalar(Math.random() * 0.5 + 9.5);
-        });
+function showLoveText(x, y) {
+  const text = document.createElement("div");
+  text.className = "love-text";
+  text.innerText = "郑高雅大笨蛋";
+  document.body.appendChild(text);
+  text.style.left = `${x - 100}px`;
+  text.style.top = `${y - 50}px`;
 
-        // 💫 外环部分
-        for (let i = 0; i < 100000; i++) {
-            let innerR = 10, outerR = 40;
-            let rand = Math.pow(Math.random(), 1.5);
-            let radius = innerR + (outerR - innerR) * rand;
-            let angle = Math.random() * 2 * Math.PI;
-            let y = (Math.random() - 0.5) * 2;
-            pts.push(new THREE.Vector3(
-                Math.cos(angle) * radius,
-                y,
-                Math.sin(angle) * radius
-            ));
-            sizes.push(Math.random() * 1.5 + 0.5);
-            pushShift();
-        }
+  setTimeout(() => {
+    text.style.opacity = 0;
+    text.style.transform = "translateY(-80px) scale(1.2)";
+  }, 100);
+  setTimeout(() => text.remove(), 2500);
+}
 
-        let g = new THREE.BufferGeometry().setFromPoints(pts);
-        g.setAttribute("sizes", new THREE.Float32BufferAttribute(sizes, 1));
-        g.setAttribute("shift", new THREE.Float32BufferAttribute(shift, 4));
+canvas.addEventListener("click", (e) => {
+  const color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+  fireworks.push(new Firework(e.clientX, h, e.clientX, e.clientY, color));
+});
 
-        // ✨ 粒子材质
-        let m = new THREE.PointsMaterial({
-            size: 0.125,
-            transparent: true,
-            depthTest: false,
-            blending: THREE.AdditiveBlending,
-            onBeforeCompile: shader => {
-                shader.uniforms.time = gu.time;
-                shader.uniforms.color1 = gu.color1;
-                shader.uniforms.color2 = gu.color2;
+function animate() {
+  requestAnimationFrame(animate);
+  ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+  ctx.fillRect(0, 0, w, h);
 
-                shader.vertexShader = `
-                    uniform float time;
-                    uniform vec3 color1;
-                    uniform vec3 color2;
-                    attribute float sizes;
-                    attribute vec4 shift;
-                    varying vec3 vColor;
-                    ${shader.vertexShader}
-                `
-                    .replace(
-                        `gl_PointSize = size;`,
-                        `gl_PointSize = size * sizes;`
-                    )
-                    .replace(
-                        `#include <color_vertex>`,
-                        `#include <color_vertex>
-                        float d = length(abs(position)/vec3(40.,10.,40.));
-                        d = clamp(d, 0., 1.);
-                        vColor = mix(color1, color2, d);`
-                    )
-                    .replace(
-                        `#include <begin_vertex>`,
-                        `#include <begin_vertex>
-                        float t = time;
-                        float moveT = mod(shift.x + shift.z * t, PI2);
-                        float moveS = mod(shift.y + shift.z * t, PI2);
-                        transformed += vec3(cos(moveS) * sin(moveT), cos(moveT), sin(moveS) * sin(moveT)) * shift.w;
-                        `
-                    );
+  fireworks.forEach((fw, i) => {
+    fw.update();
+    fw.draw();
+    if (fw.exploded) fireworks.splice(i, 1);
+  });
 
-                shader.fragmentShader = `
-                    varying vec3 vColor;
-                    ${shader.fragmentShader}
-                `
-                    .replace(
-                        `#include <clipping_planes_fragment>`,
-                        `#include <clipping_planes_fragment>
-                        float d = length(gl_PointCoord.xy - 0.5);
-                        `
-                    )
-                    .replace(
-                        `vec4 diffuseColor = vec4( diffuse, opacity );`,
-                        `vec4 diffuseColor = vec4(vColor, smoothstep(0.5, 0.1, d));`
-                    );
-            }
-        });
-
-        let p = new THREE.Points(g, m);
-        p.rotation.order = "ZYX";
-        p.rotation.z = 0.2;
-        scene.add(p);
-
-        // 🎠 动画循环
-        let clock = new THREE.Clock();
-        renderer.setAnimationLoop(() => {
-            controls.update();
-            let t = clock.getElapsedTime() * 0.5;
-            gu.time.value = t * Math.PI;
-            p.rotation.y = t * 0.05;
-            renderer.render(scene, camera);
-        });
-
-        // 🎨 实时颜色绑定
-        const c1 = document.getElementById("color1");
-        const c2 = document.getElementById("color2");
-        c1.addEventListener("input", e => gu.color1.value.set(e.target.value));
-        c2.addEventListener("input", e => gu.color2.value.set(e.target.value));
-
-        // ✅ 页面加载时同步 input → uniform
-        gu.color1.value.set(c1.value);
-        gu.color2.value.set(c2.value);
-    </script>
+  particles.forEach((p, i) => {
+    p.update();
+    p.draw();
+    if (p.life <= 0) particles.splice(i, 1);
+  });
+}
+animate();
+</script>
 </body>
-
 </html>
