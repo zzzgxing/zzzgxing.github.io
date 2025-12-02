@@ -1,189 +1,208 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>便签promax</title>
-<style>
-  * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    user-select: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-  }
-  body {
-    overflow: hidden;
-    height: 100vh;
-    background: radial-gradient(circle at center, #f8f8f8, #dbe6f6);
-    perspective: 1000px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    cursor: none;
-  }
-  #board {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    transform-style: preserve-3d;
-  }
-  .card {
-    position: absolute;
-    width: 220px;
-    height: 60px;
-    border-radius: 10px;
-    box-shadow: 0 12px 30px rgba(0,0,0,0.25);
-    background: #fff;
-    text-align: center;
-    padding: 16px;
-    font-weight: 600;
-    color: #333;
-    opacity: 0;
-    transform-origin: center;
-    backface-visibility: hidden;
-    border: 1px solid rgba(0,0,0,0.1);
-    transition: opacity 1s ease;
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>浪漫星尘旋涡</title>
+    <style>
+        body {
+            overflow: hidden;
+            margin: 0;
+            background: #160016;
+            font-family: sans-serif;
+        }
+
+        .color-controls {
+            position: fixed;
+            left: 20px;
+            bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px 15px;
+            border-radius: 12px;
+            backdrop-filter: blur(6px);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+
+        .color-controls label {
+            font-size: 14px;
+            color: #fff;
+            margin-right: 4px;
+        }
+
+        .color-controls input[type="color"] {
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            background: none;
+        }
+    </style>
 </head>
+
 <body>
-<div id="board"></div>
+    <div class="color-controls">
+        <label>颜色 1：</label><input type="color" id="color1" value="#e8e34f">
+        <label>颜色 2：</label><input type="color" id="color2" value="#9f1465">
+    </div>
 
-<script>
-const board = document.getElementById("board");
-const messages = [
-  "保持好心情","多喝水哦","今天辛苦啦","早点休息","加油，你可以的",
-  "祝你顺利","愿所有烦恼都消失","每天都要元气满满","好梦！","继续发光✨"
-];
-const colors = ["#ffdce0","#d2f5ff","#ffecb3","#d7f9d0","#e4ddff","#fff3cd"];
+    <script type="module">
+        import * as THREE from "https://cdn.skypack.dev/three@0.136.0";
+        import { OrbitControls } from "https://cdn.skypack.dev/three@0.136.0/examples/jsm/controls/OrbitControls";
 
-let cards = [];
-const cardCount = 30;
-let angleOffset = 0;
-let running = true;
-let speedFactor = 1;
-let baseSpeed = 0.008;
+        let scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x160016);
 
-// 龙卷风中心（实际中心点）
-let centerX = window.innerWidth / 2;
-let centerY = window.innerHeight / 2;
+        let camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 1, 1000);
+        camera.position.set(0, 4, 21);
 
-// 鼠标目标点（引力中心）
-let targetX = centerX;
-let targetY = centerY;
+        let renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(innerWidth, innerHeight);
+        document.body.appendChild(renderer.domElement);
 
-// 鼠标控制目标点移动
-document.addEventListener("mousemove", e => {
-  targetX = e.clientX;
-  targetY = e.clientY;
-});
+        window.addEventListener("resize", () => {
+            camera.aspect = innerWidth / innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(innerWidth, innerHeight);
+        });
 
-// 鼠标按下时加速旋转
-document.addEventListener("mousedown", () => {
-  speedFactor = 3;
-});
+        let controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
 
-// 鼠标松开时爆炸再重组
-document.addEventListener("mouseup", () => {
-  speedFactor = 1;
-  explode();
-});
+        // 🌸 初始颜色（金黄 + 玫红）
+        let gu = {
+            time: { value: 0 },
+            color1: { value: new THREE.Color(0xe8e34f) },
+            color2: { value: new THREE.Color(0x9f1465) }
+        };
 
-// 初始化卡片
-function createCards() {
-  for (let i = 0; i < cardCount; i++) {
-    const c = document.createElement("div");
-    c.className = "card";
-    c.textContent = messages[Math.floor(Math.random() * messages.length)];
-    c.style.background = colors[Math.floor(Math.random() * colors.length)];
-    board.appendChild(c);
+        let sizes = [];
+        let shift = [];
 
-    cards.push({
-      el: c,
-      radius: 180 + Math.random() * 250,
-      heightOffset: Math.random() * 300 - 150,
-      speed: 0.5 + Math.random() * 0.8,
-      tilt: (Math.random() - 0.5) * 40,
-      flipSpeed: 0.02 + Math.random() * 0.02,
-      flipAngle: Math.random() * Math.PI * 2,
-      attractStrength: 0.02 + Math.random() * 0.05,
-      x: Math.random() * window.innerWidth,
-      y: Math.random() * window.innerHeight,
-      z: 0
-    });
+        function pushShift() {
+            shift.push(
+                Math.random() * Math.PI,
+                Math.random() * Math.PI * 2,
+                (Math.random() * 0.9 + 0.1) * Math.PI * 0.1,
+                Math.random() * 0.9 + 0.1
+            );
+        }
 
-    setTimeout(() => (c.style.opacity = 1), 200 + Math.random() * 600);
-  }
-}
+        // 🌟 球体部分
+        let pts = new Array(50000).fill().map(() => {
+            sizes.push(Math.random() * 1.5 + 0.5);
+            pushShift();
+            return new THREE.Vector3().randomDirection().multiplyScalar(Math.random() * 0.5 + 9.5);
+        });
 
-// 动画主循环
-function animate() {
-  if (!running) return;
+        // 💫 外环部分
+        for (let i = 0; i < 100000; i++) {
+            let innerR = 10, outerR = 40;
+            let rand = Math.pow(Math.random(), 1.5);
+            let radius = innerR + (outerR - innerR) * rand;
+            let angle = Math.random() * 2 * Math.PI;
+            let y = (Math.random() - 0.5) * 2;
+            pts.push(new THREE.Vector3(
+                Math.cos(angle) * radius,
+                y,
+                Math.sin(angle) * radius
+            ));
+            sizes.push(Math.random() * 1.5 + 0.5);
+            pushShift();
+        }
 
-  // 中心缓慢被目标点吸引
-  centerX += (targetX - centerX) * 0.05;
-  centerY += (targetY - centerY) * 0.05;
+        let g = new THREE.BufferGeometry().setFromPoints(pts);
+        g.setAttribute("sizes", new THREE.Float32BufferAttribute(sizes, 1));
+        g.setAttribute("shift", new THREE.Float32BufferAttribute(shift, 4));
 
-  angleOffset += baseSpeed * speedFactor;
+        // ✨ 粒子材质
+        let m = new THREE.PointsMaterial({
+            size: 0.125,
+            transparent: true,
+            depthTest: false,
+            blending: THREE.AdditiveBlending,
+            onBeforeCompile: shader => {
+                shader.uniforms.time = gu.time;
+                shader.uniforms.color1 = gu.color1;
+                shader.uniforms.color2 = gu.color2;
 
-  cards.forEach((c, i) => {
-    const angle = angleOffset * c.speed + i * (Math.PI * 2 / cardCount);
-    const targetX = centerX + Math.cos(angle) * c.radius;
-    const targetY = centerY + Math.sin(angle) * c.radius * 0.6 + c.heightOffset;
-    const targetZ = Math.sin(angle * 2) * 150;
+                shader.vertexShader = `
+                    uniform float time;
+                    uniform vec3 color1;
+                    uniform vec3 color2;
+                    attribute float sizes;
+                    attribute vec4 shift;
+                    varying vec3 vColor;
+                    ${shader.vertexShader}
+                `
+                    .replace(
+                        `gl_PointSize = size;`,
+                        `gl_PointSize = size * sizes;`
+                    )
+                    .replace(
+                        `#include <color_vertex>`,
+                        `#include <color_vertex>
+                        float d = length(abs(position)/vec3(40.,10.,40.));
+                        d = clamp(d, 0., 1.);
+                        vColor = mix(color1, color2, d);`
+                    )
+                    .replace(
+                        `#include <begin_vertex>`,
+                        `#include <begin_vertex>
+                        float t = time;
+                        float moveT = mod(shift.x + shift.z * t, PI2);
+                        float moveS = mod(shift.y + shift.z * t, PI2);
+                        transformed += vec3(cos(moveS) * sin(moveT), cos(moveT), sin(moveS) * sin(moveT)) * shift.w;
+                        `
+                    );
 
-    c.x += (targetX - c.x) * c.attractStrength;
-    c.y += (targetY - c.y) * c.attractStrength;
-    c.z += (targetZ - c.z) * c.attractStrength;
+                shader.fragmentShader = `
+                    varying vec3 vColor;
+                    ${shader.fragmentShader}
+                `
+                    .replace(
+                        `#include <clipping_planes_fragment>`,
+                        `#include <clipping_planes_fragment>
+                        float d = length(gl_PointCoord.xy - 0.5);
+                        `
+                    )
+                    .replace(
+                        `vec4 diffuseColor = vec4( diffuse, opacity );`,
+                        `vec4 diffuseColor = vec4(vColor, smoothstep(0.5, 0.1, d));`
+                    );
+            }
+        });
 
-    c.flipAngle += c.flipSpeed;
-    const rotateY = Math.sin(c.flipAngle) * c.tilt;
-    const rotateX = Math.cos(c.flipAngle) * 10;
+        let p = new THREE.Points(g, m);
+        p.rotation.order = "ZYX";
+        p.rotation.z = 0.2;
+        scene.add(p);
 
-    // 更新 transform
-    c.el.style.transform = `
-      translate3d(${c.x - 110}px, ${c.y - 60}px, ${c.z}px)
-      rotateY(${rotateY}deg)
-      rotateX(${rotateX}deg)
-      scale(${1 + Math.sin(angle * 3) * 0.05})
-    `;
+        // 🎠 动画循环
+        let clock = new THREE.Clock();
+        renderer.setAnimationLoop(() => {
+            controls.update();
+            let t = clock.getElapsedTime() * 0.5;
+            gu.time.value = t * Math.PI;
+            p.rotation.y = t * 0.05;
+            renderer.render(scene, camera);
+        });
 
-    // ✅ 根据 z 值动态调整 z-index，避免穿模
-    c.el.style.zIndex = Math.floor(1000 + c.z);
-  });
+        // 🎨 实时颜色绑定
+        const c1 = document.getElementById("color1");
+        const c2 = document.getElementById("color2");
+        c1.addEventListener("input", e => gu.color1.value.set(e.target.value));
+        c2.addEventListener("input", e => gu.color2.value.set(e.target.value));
 
-  requestAnimationFrame(animate);
-}
-
-// 爆炸效果
-function explode() {
-  running = false;
-  cards.forEach((c) => {
-    const angle = Math.random() * 2 * Math.PI;
-    const dist = 800 + Math.random() * 400;
-    const dx = Math.cos(angle) * dist;
-    const dy = Math.sin(angle) * dist;
-    const dz = (Math.random() - 0.5) * 600;
-    c.el.style.transition = "transform 1.2s ease-out, opacity 1.2s ease";
-    c.el.style.transform = `translate3d(${dx}px, ${dy}px, ${dz}px)
-      rotateY(${Math.random() * 720}deg)
-      rotateX(${Math.random() * 720}deg)
-      scale(0.8)`;
-    c.el.style.opacity = 0;
-  });
-
-  setTimeout(() => {
-    cards.forEach((c) => c.el.remove());
-    cards = [];
-    running = true;
-    createCards();
-    animate();
-  }, 1300);
-}
-
-createCards();
-animate();
-</script>
+        // ✅ 页面加载时同步 input → uniform
+        gu.color1.value.set(c1.value);
+        gu.color2.value.set(c2.value);
+    </script>
 </body>
+
 </html>
