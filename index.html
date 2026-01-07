@@ -2,39 +2,34 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>AI Magical Stardust Tree (Local Photos)</title>
+    <title>AI Magical Stardust Tree</title>
     <style>
-        /* 背景色 - 深紫黑星空 */
+        /* 背景色修改为星尘旋涡的深色背景 */
         body { margin: 0; overflow: hidden; background: #160016; font-family: 'Segoe UI', sans-serif; }
         #container { width: 100vw; height: 100vh; }
-        
-        /* UI 层样式 */
         #ui-layer { position: absolute; top: 20px; left: 20px; z-index: 10; color: #e8e34f; pointer-events: none; }
         .hint { background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; border: 1px solid #e8e34f; margin-bottom: 10px; backdrop-filter: blur(4px); }
-        
-        /* 摄像头预览框 */
         #video-container { position: absolute; bottom: 20px; right: 20px; width: 240px; height: 180px; border: 2px solid #e8e34f; border-radius: 12px; overflow: hidden; transform: scaleX(-1); }
-        
-        /* 加载提示 */
-        #loading { position: fixed; top:0; left:0; width:100%; height:100%; background: #160016; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #e8e34f; z-index: 100; font-size: 24px; }
-        #loading-sub { font-size: 16px; color: #9f1465; margin-top: 10px; }
+        #upload-btn { pointer-events: auto; background: #9f1465; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 5px; font-weight: bold; transition: 0.3s; }
+        #upload-btn:hover { background: #b81b76; box-shadow: 0 0 10px #9f1465; }
+        canvas { display: block; }
+        #loading { position: fixed; top:0; left:0; width:100%; height:100%; background: #160016; display: flex; justify-content: center; align-items: center; color: #e8e34f; z-index: 100; font-size: 24px; }
     </style>
 </head>
 <body>
 
-<div id="loading">
-    <div>正在凝聚星尘...</div>
-    <div id="loading-sub">尝试加载本地图片中...</div>
-</div>
+<div id="loading">正在凝聚星尘...</div>
 
 <div id="ui-layer">
     <div class="hint">
         <b>手势控制说明:</b><br>
         ✊ 握拳：凝聚星尘 (Assemble)<br>
-        🖐️ 张手：散开照片 (Scatter)<br>
-        🤏 捏合/抓取：照片聚焦 (Focus)<br>
+        🖐️ 张手：散开粒子 (Scatter)<br>
+        🤏 捏合/抓取：查看照片 (Focus)<br>
         👋 移动：旋转视角
     </div>
+    <input type="file" id="image-upload" multiple accept="image/*" style="display:none">
+    <button id="upload-btn" onclick="document.getElementById('image-upload').click()">上传您的照片云</button>
 </div>
 
 <div id="video-container">
@@ -50,45 +45,34 @@
 
 <script>
 /**
- * ==========================================================
- * 🟢 请在这里修改图片路径 🟢
- * ==========================================================
- * 1. 确保图片文件放在和本 HTML 文件【同一个文件夹】下
- * 2. 在下面的列表中填入图片的文件名
+ * 核心配置 - 颜色已更新为星尘风格
  */
 const CONFIG = {
-    // 🔴 新的配置方式
-    photoConfig: {
-        folder: 'photos',   // 图片存放的文件夹名字
-        maxCount: 50,       // 你想让程序尝试扫描的最大数量（比如只扫前50张）
-        extension: '.jpg'   // 图片后缀，建议统一用 .jpg
-    },
-
-    // 粒子配置 (保持不变)
-    particleCount: 3000, 
+    particleCount: 3000, // 粒子数量可以稍微多一点，因为Points渲染很快
     treeHeight: 30,
     treeRadius: 12,
     colors: {
-        primary: 0xe8e34f,
-        secondary: 0x9f1465
+        primary: 0xe8e34f,  // 颜色1：金黄
+        secondary: 091465   // 颜色2：玫红
     }
 };
-let scene, camera, renderer, hands, pointsMesh;
-let photoMeshes = []; // 存储照片Mesh
+
+let scene, camera, renderer, hands, pointsMesh, photoMeshes = [];
 let currentState = 'CLOSE'; 
-let particlesData = []; 
+let particlesData = []; // 存储粒子的逻辑位置数据
 let targetCameraPos = new THREE.Vector3(0, 5, 45);
 
-// Shader Uniforms
+// Shader Uniforms 全局变量
 let gu = {
     time: { value: 0 },
-    color1: { value: new THREE.Color(CONFIG.colors.primary) },
-    color2: { value: new THREE.Color(CONFIG.colors.secondary) }
+    color1: { value: new THREE.Color(0xe8e34f) },
+    color2: { value: new THREE.Color(0x9f1465) }
 };
 
 async function init() {
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x160016);
+    scene.background = new THREE.Color(0x160016); // 深紫黑背景
+    // 添加一点雾效增强景深
     scene.fog = new THREE.FogExp2(0x160016, 0.015);
 
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -99,96 +83,27 @@ async function init() {
     renderer.setPixelRatio(window.devicePixelRatio);
     document.getElementById('container').appendChild(renderer.domElement);
 
-    // 基础光照确保照片可见
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+    // 依然保留基本光照给照片墙使用
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
 
-    // 1. 创建星尘树
     createStardustTree();
-    
-    // 2. 加载本地图片
-    loadLocalImages();
-
-    // 3. 启动手势和动画
     initMediaPipe();
     animate();
     
-    // 隐藏加载层
-    setTimeout(() => {
-        document.getElementById('loading').style.display = 'none';
-    }, 1500);
+    document.getElementById('loading').style.display = 'none';
 }
 
 /**
- * 🟡 加载本地图片的核心函数
- */
-/**
- * 🟡 自动探测加载图片 (盲盒模式)
- * 原理：尝试加载 photos/1.jpg 到 photos/50.jpg
- * 如果图片存在就显示，不存在就自动跳过
- */
-function loadLocalImages() {
-    const loader = new THREE.TextureLoader();
-    const { folder, maxCount, extension } = CONFIG.photoConfig;
-
-    // 循环尝试加载 1 到 maxCount
-    for (let i = 1; i <= maxCount; i++) {
-        // 拼凑路径： photos/1.jpg
-        const path = `${folder}/${i}${extension}`;
-
-        loader.load(
-            path,
-            // 1. 加载成功：创建照片 Mesh
-            (texture) => {
-                // 保持图片比例逻辑
-                let width = 5;
-                let height = 5;
-                if(texture.image.width > texture.image.height) {
-                    height = width * (texture.image.height / texture.image.width);
-                } else {
-                    width = height * (texture.image.width / texture.image.height);
-                }
-                const aspectGeo = new THREE.PlaneGeometry(width, height);
-                const material = new THREE.MeshBasicMaterial({ 
-                    map: texture, 
-                    side: THREE.DoubleSide,
-                    transparent: true 
-                });
-                
-                const mesh = new THREE.Mesh(aspectGeo, material);
-                
-                // 初始隐藏
-                mesh.position.set(0, 0, 0);
-                mesh.scale.set(0.01, 0.01, 0.01);
-                
-                scene.add(mesh);
-                photoMeshes.push(mesh); // 加入动画数组
-                
-                console.log(`✅ 成功加载: ${path}`);
-            },
-            
-            // 2. 加载进度 (不需要)
-            undefined,
-            
-            // 3. 加载失败 (非常重要：静默处理)
-            (err) => {
-                // 这里是正常的，因为我们是在"猜"图片。
-                // 如果 photos/5.jpg 不存在，会触发这里，我们什么都不做，直接忽略。
-                // console.log(`跳过: ${path} (不存在)`); 
-            }
-        );
-    }
-}
-
-/**
- * 创建星尘粒子系统 (Shader逻辑保持不变)
+ * 创建星尘粒子系统 (THREE.Points + Custom Shader)
  */
 function createStardustTree() {
     const geometry = new THREE.BufferGeometry();
     const positions = [];
     const sizes = [];
-    const shifts = [];
+    const shifts = []; // 用于Shader中的随机微动
 
+    // 辅助函数：生成 Shift 数据 (来自参考代码)
     function pushShift() {
         shifts.push(
             Math.random() * Math.PI,
@@ -199,24 +114,35 @@ function createStardustTree() {
     }
 
     for (let i = 0; i < CONFIG.particleCount; i++) {
+        // 1. 初始散落位置
         const pos = new THREE.Vector3(
             (Math.random() - 0.5) * 80,
             (Math.random() - 0.5) * 80,
             (Math.random() - 0.5) * 80
         );
 
+        // 2. 圣诞树形态计算
         const ratio = i / CONFIG.particleCount;
-        const angle = ratio * Math.PI * 50;
+        const angle = ratio * Math.PI * 50; // 螺旋圈数
         const radius = (1 - ratio) * CONFIG.treeRadius; 
         const treePos = new THREE.Vector3(
             Math.cos(angle) * radius,
             ratio * CONFIG.treeHeight - 12,
             Math.sin(angle) * radius
         );
+        
+        // 稍微打乱一点树的规则性，让它看起来更像星云
         treePos.x += (Math.random()-0.5) * 0.5;
         treePos.z += (Math.random()-0.5) * 0.5;
 
-        particlesData.push({ current: pos.clone(), scatter: pos.clone(), tree: treePos });
+        // 存储逻辑数据用于Tween动画
+        particlesData.push({
+            current: pos.clone(), // 当前显示位置
+            scatter: pos.clone(), // 散开目标
+            tree: treePos,        // 树形目标
+        });
+
+        // 填充 BufferGeometry 数据
         positions.push(pos.x, pos.y, pos.z);
         sizes.push(Math.random() * 1.5 + 0.5);
         pushShift();
@@ -226,15 +152,17 @@ function createStardustTree() {
     geometry.setAttribute('sizes', new THREE.Float32BufferAttribute(sizes, 1));
     geometry.setAttribute('shift', new THREE.Float32BufferAttribute(shifts, 4));
 
+    // 材质定义：完全复用参考代码的 Shader 逻辑
     const material = new THREE.PointsMaterial({
-        size: 0.25,
+        size: 0.25, // 稍微调大一点基础大小
         transparent: true,
-        depthTest: false,
-        blending: THREE.AdditiveBlending,
+        depthTest: false, // 关闭深度测试以获得更好的叠加发光效果
+        blending: THREE.AdditiveBlending, // 关键：加法混合实现发光
         onBeforeCompile: shader => {
             shader.uniforms.time = gu.time;
             shader.uniforms.color1 = gu.color1;
             shader.uniforms.color2 = gu.color2;
+
             shader.vertexShader = `
                 uniform float time;
                 uniform vec3 color1;
@@ -243,27 +171,47 @@ function createStardustTree() {
                 attribute vec4 shift;
                 varying vec3 vColor;
                 ${shader.vertexShader}
-            `.replace(`gl_PointSize = size;`, `gl_PointSize = size * sizes;`)
-             .replace(`#include <color_vertex>`, 
+            `
+            .replace(
+                `gl_PointSize = size;`,
+                `gl_PointSize = size * sizes;`
+            )
+            .replace(
+                `#include <color_vertex>`,
                 `#include <color_vertex>
-                float d = length(abs(position)/vec3(20., 30., 20.));
+                // 计算距离中心的距离，用于颜色混合
+                float d = length(abs(position)/vec3(20., 30., 20.)); // 调整混合范围适应树的大小
                 d = clamp(d, 0., 1.);
-                vColor = mix(color1, color2, d);`)
-             .replace(`#include <begin_vertex>`, 
+                vColor = mix(color1, color2, d);`
+            )
+            .replace(
+                `#include <begin_vertex>`,
                 `#include <begin_vertex>
                 float t = time;
+                // 添加原本的微动效果
                 float moveT = mod(shift.x + shift.z * t, 6.28318);
                 float moveS = mod(shift.y + shift.z * t, 6.28318);
-                transformed += vec3(cos(moveS) * sin(moveT), cos(moveT), sin(moveS) * sin(moveT)) * shift.w;`);
+                transformed += vec3(cos(moveS) * sin(moveT), cos(moveT), sin(moveS) * sin(moveT)) * shift.w;
+                `
+            );
+
             shader.fragmentShader = `
                 varying vec3 vColor;
                 ${shader.fragmentShader}
-            `.replace(`#include <clipping_planes_fragment>`, 
+            `
+            .replace(
+                `#include <clipping_planes_fragment>`,
                 `#include <clipping_planes_fragment>
                 float d = length(gl_PointCoord.xy - 0.5);
-                if (d > 0.5) discard;`)
-             .replace(`vec4 diffuseColor = vec4( diffuse, opacity );`, 
-                `vec4 diffuseColor = vec4(vColor, smoothstep(0.5, 0.1, d));`);
+                // 圆形粒子裁切
+                if (d > 0.5) discard;
+                `
+            )
+            .replace(
+                `vec4 diffuseColor = vec4( diffuse, opacity );`,
+                `// 边缘柔化
+                vec4 diffuseColor = vec4(vColor, smoothstep(0.5, 0.1, d));`
+            );
         }
     });
 
@@ -272,112 +220,130 @@ function createStardustTree() {
 }
 
 /**
- * 状态切换与动画
+ * 手势状态切换逻辑
  */
 function switchState(newState) {
     if (newState === currentState) return;
     currentState = newState;
 
-    // 1. 粒子动画
+    // 触发 TWEEN 动画更新 particlesData 中的 current 向量
     particlesData.forEach((p) => {
         const target = newState === 'CLOSE' ? p.tree : p.scatter;
+        
+        // 稍微随机化动画时间，看起来更自然
         const duration = 1200 + Math.random() * 600; 
+
         new TWEEN.Tween(p.current)
             .to({ x: target.x, y: target.y, z: target.z }, duration)
             .easing(TWEEN.Easing.Quadratic.InOut)
             .start();
     });
 
-    // 2. 照片墙动画
-    if (photoMeshes.length > 0) {
-        photoMeshes.forEach((mesh, i) => {
-            let targetPos, targetScale;
-            
-            if (newState === 'CLOSE') {
-                // 合拢：照片藏在树中心
-                targetPos = { x: 0, y: 0, z: 0 };
-                targetScale = 0.01;
-            } 
-            else if (newState === 'SCATTER') {
-                // 张手：照片环绕散开
-                // 计算螺旋分布
-                const angle = i * 0.8; 
-                const radius = 15 + Math.random() * 5;
-                targetPos = { 
-                    x: Math.cos(angle) * radius, 
-                    y: (Math.random() - 0.5) * 20, 
-                    z: Math.sin(angle) * radius 
-                };
-                // 让照片朝向中心
-                mesh.lookAt(0, 0, 0);
-                targetScale = 1;
-            } 
-            else if (newState === 'FOCUS') {
-                // 捏合：轮播展示或者全部拉近
-                // 这里逻辑稍微改一下，让所有照片排列在面前
-                const cols = 4; // 每行4张
-                const row = Math.floor(i / cols);
-                const col = i % cols;
-                
-                targetPos = { 
-                    x: (col - 1.5) * 6, // 横向排列
-                    y: 10 - row * 6,    // 纵向排列
-                    z: 20               // 放在相机前面
-                };
-                mesh.rotation.set(0, 0, 0); // 正对屏幕
-                targetScale = 1.2;
-            }
-            
-            new TWEEN.Tween(mesh.position).to(targetPos, 1000).easing(TWEEN.Easing.Back.Out).start();
-            new TWEEN.Tween(mesh.scale).to({x: targetScale, y: targetScale, z: targetScale}, 1000).start();
-            
-            // 如果是 Scatter 状态，结束Tween后让它稍微重新面向中心（修正Tween覆盖的lookAt）
-            if (newState === 'SCATTER') {
-               // 这里简化处理，交给 update 里的 lookAt
-            }
-        });
-    }
+    // 照片墙逻辑保持不变
+    photoMeshes.forEach((mesh, i) => {
+        let targetPos, targetScale;
+        if (newState === 'CLOSE') {
+            targetPos = { x: 0, y: 0, z: 0 };
+            targetScale = 0.01;
+        } else if (newState === 'SCATTER') {
+            targetPos = { 
+                x: Math.sin(i) * 15, 
+                y: Math.cos(i * 1.5) * 15, 
+                z: Math.tan(Math.sin(i)) * 5 
+            };
+            targetScale = 1;
+        } else if (newState === 'FOCUS' && i === 0) {
+            targetPos = { x: 0, y: 5, z: 25 }; // 调整聚焦位置
+            targetScale = 3;
+        }
+        
+        new TWEEN.Tween(mesh.position).to(targetPos, 1000).start();
+        new TWEEN.Tween(mesh.scale).to({x: targetScale, y: targetScale, z: targetScale}, 1000).start();
+    });
 }
 
+/**
+ * 动画循环
+ */
 let clock = new THREE.Clock();
 function animate(time) {
     requestAnimationFrame(animate);
     TWEEN.update(time);
-    const t = clock.getElapsedTime();
-    gu.time.value = t * Math.PI;
 
+    const t = clock.getElapsedTime();
+    gu.time.value = t * Math.PI; // 更新 Shader 时间
+
+    // 核心逻辑：将 TWEEN 更新后的逻辑坐标同步到 BufferGeometry
     if (pointsMesh) {
         const positions = pointsMesh.geometry.attributes.position.array;
+        
         for (let i = 0; i < CONFIG.particleCount; i++) {
             const p = particlesData[i];
+            
+            // 将逻辑位置赋值给渲染位置
             positions[i * 3] = p.current.x;
             positions[i * 3 + 1] = p.current.y;
             positions[i * 3 + 2] = p.current.z;
         }
-        pointsMesh.geometry.attributes.position.needsUpdate = true;
         
+        // 标记位置属性需要更新
+        pointsMesh.geometry.attributes.position.needsUpdate = true;
+
+        // 整体旋转（仅在合拢状态下，增加观赏性）
         if (currentState === 'CLOSE') {
             pointsMesh.rotation.y = t * 0.1;
         }
     }
 
-    // 动态调整照片朝向（仅在散开模式下一直朝向中心）
-    if(currentState === 'SCATTER') {
-        photoMeshes.forEach(mesh => mesh.lookAt(0,0,0));
-    }
-
+    // 相机平滑移动
     camera.position.lerp(targetCameraPos, 0.05);
     camera.lookAt(0, 0, 0);
+
     renderer.render(scene, camera);
 }
 
-// MediaPipe 保持不变
+/**
+ * 照片上传逻辑 (保持不变)
+ */
+document.getElementById('image-upload').addEventListener('change', (e) => {
+    const files = Array.from(e.target.files);
+    photoMeshes.forEach(p => scene.remove(p));
+    photoMeshes = [];
+
+    files.forEach((file, index) => {
+        const url = URL.createObjectURL(file);
+        new THREE.TextureLoader().load(url, (tex) => {
+            const mat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide, transparent: true });
+            const geo = new THREE.PlaneGeometry(4, 4);
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(0, 0, 0);
+            mesh.scale.set(0.01, 0.01, 0.01);
+            scene.add(mesh);
+            photoMeshes.push(mesh);
+        });
+    });
+});
+
+/**
+ * MediaPipe 初始化与逻辑 (保持不变)
+ */
 function initMediaPipe() {
     const videoElement = document.getElementById('input-video');
-    hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
-    hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+    hands = new Hands({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+    });
+    hands.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.7,
+        minTrackingConfidence: 0.7
+    });
     hands.onResults(onResults);
-    const cameraUtils = new Camera(videoElement, { onFrame: async () => await hands.send({ image: videoElement }), width: 640, height: 480 });
+    const cameraUtils = new Camera(videoElement, {
+        onFrame: async () => await hands.send({ image: videoElement }),
+        width: 640,
+        height: 480
+    });
     cameraUtils.start();
 }
 
@@ -392,6 +358,7 @@ function onResults(results) {
         else if (isPinch) switchState('FOCUS');
         else if (isSpread) switchState('SCATTER');
 
+        // 手势控制视角
         const handX = (landmarks[9].x - 0.5) * 2;
         const handY = (landmarks[9].y - 0.5) * 2;
         targetCameraPos.x = handX * 40;
